@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
-
-// TODO: more descriptive error messages
+#include <string.h>
 
 unsigned char bin_to_ascii[65] = {
     'A','B','C','D','E','F','G','H','I','J','K','L','M',
@@ -16,7 +15,9 @@ int8_t ascii_to_bin[80] = {
     -1,-1,-1,
     /* / */   63,
     /* 0-9 */ 52,53,54,55,56,57,58,59,60,61,
-    -1,-1,-1,0,-1,-1,-1,
+    -1,-1,-1,
+    /* = */ 0,
+    -1,-1,-1,
     /* A-Z */ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,
     -1,-1,-1,-1,-1,-1,
     /* a-z */ 26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51
@@ -26,9 +27,9 @@ const unsigned char base_char = '+';
 
 void PrintBits(void* bytes, uint64_t num_bytes) {
     printf("Bytes: ");
-    for(int i = 0; i < num_bytes; ++i) {
-        for(int j = 0; j < 8; ++j) {
-            uint8_t on = ((unsigned char*)bytes)[i] & (1 << (7 - j));
+    for(uint64_t i = 0; i < num_bytes; ++i) {
+        for(uint64_t j = 0; j < 8; ++j) {
+            uint8_t on = ((uint8_t*)bytes)[i] & (1 << (7 - j));
             if(on) {
                 printf("1");
             }
@@ -54,6 +55,7 @@ char* Base64Encode(void* data, uint64_t num_bytes) {
     char* result_string = malloc(result_size + 1);
     if(!result_string) {
         printf("Could not malloc %zd bytes for result size...\n", result_size);
+        return NULL;
     }
 
     uint64_t num_bytes_left = num_bytes;
@@ -130,43 +132,43 @@ void* Base64Decode(char* data, uint64_t* num_bytes_returned) {
     uint64_t growth_factor = 2;
     uint8_t* write_buffer = malloc(buffer_size);
     if(!write_buffer) {
-        printf("Could not malloc %zd bytes for output buffer...\n", buffer_size);
+        printf("Could not malloc %lld bytes for output buffer...\n", buffer_size);
         return NULL;
     }
     uint64_t write_i = 0;
-    char* read_ptr = data;
-    while(*read_ptr != '\0') {
+    uint64_t read_i = 0;
+    while(data[read_i] != '\0') {
         // Incorrect length
-        if(*(read_ptr + 1) == '\0' ||
-           *(read_ptr + 2) == '\0' ||
-           *(read_ptr + 3) == '\0') {
+        if(data[read_i + 1] == '\0' ||
+           data[read_i + 2] == '\0' ||
+           data[read_i + 3] == '\0') {
             free(write_buffer);
-            printf("Incorrect string length...\n");
+            printf("Base64 string must be multiple of 4, but instead is %lld...\n", strlen(data));
             return NULL;
         }
 
         // Incorrect padding
-        if(*read_ptr == '=' ||
-           *(read_ptr + 1) == '=') {
+        if(data[read_i]     == '=' ||
+           data[read_i + 1] == '=') {
             free(write_buffer);
-            printf("Incorrect padding...\n");
+            printf("Incorrect padding near char index %lld [%c%c%c%c]...\n", read_i, data[read_i], data[read_i + 1], data[read_i + 2], data[read_i + 3]);
             return NULL;
         }
 
         // Check padding to see if we write 1, 2, or 3 bytes
         uint8_t num_bytes_to_write = 3;
-        if(*(read_ptr + 3) == '=') {
+        if(data[read_i + 3] == '=') {
             num_bytes_to_write = 2;
         }
-        if(*(read_ptr + 2) == '=') {
+        if(data[read_i + 2] == '=') {
             num_bytes_to_write = 1;
         }
 
         // After padding should be null term
         if(num_bytes_to_write < 3 && 
-           *(read_ptr + 4) != '\0') {
+           data[read_i + 4] != '\0') {
             free(write_buffer);
-            printf("String doesn't terminate after padding...\n");
+            printf("String doesn't terminate after padding [%c%c%c%c%c]...\n", data[read_i], data[read_i + 1], data[read_i + 2], data[read_i + 3], data[read_i + 4]);
             return NULL;
         }
 
@@ -185,10 +187,10 @@ void* Base64Decode(char* data, uint64_t* num_bytes_returned) {
         }
 
         // Check for bad characters
-        char char_0 = *read_ptr++;
-        char char_1 = *read_ptr++;
-        char char_2 = *read_ptr++;
-        char char_3 = *read_ptr++;
+        char char_0 = data[read_i++];
+        char char_1 = data[read_i++];
+        char char_2 = data[read_i++];
+        char char_3 = data[read_i++];
         uint8_t index_0 = char_0 - base_char;
         uint8_t index_1 = char_1 - base_char;
         uint8_t index_2 = char_2 - base_char;
@@ -198,7 +200,7 @@ void* Base64Decode(char* data, uint64_t* num_bytes_returned) {
            79 < index_2 ||
            79 < index_3) {
             free(write_buffer);
-            printf("Bad ascii character found...\n");
+            printf("Bad ascii character found near index %lld [%c%c%c%c]...\n", read_i - 4, char_0, char_1, char_2, char_3);
             return NULL;
         }
         int8_t byte_to_read_0 = ascii_to_bin[index_0];
@@ -211,7 +213,7 @@ void* Base64Decode(char* data, uint64_t* num_bytes_returned) {
            byte_to_read_2 == -1 ||
            byte_to_read_3 == -1) {
             free(write_buffer);
-            printf("Bad ascii character found...\n");
+            printf("Bad ascii character found near index %lld [%c%c%c%c]...\n", read_i - 4, char_0, char_1, char_2, char_3);
             return NULL;
         }
 
