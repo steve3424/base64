@@ -227,8 +227,50 @@ UnitTestResult TEST_8193_bytes() {
 	return test_result;
 }
 
+UnitTestResult TEST_BadPadding() {
+	UnitTestResult test_result;
+	test_result.passed = 1;
+
+	char* input = "a===";
+	uint64_t data_size = 0;
+	uint8_t* data_decoded = Base64Decode(input, &data_size);
+	if(data_decoded) {
+		test_result.passed = 0;
+		snprintf(test_result.error_str, sizeof(test_result.error_str), "Returned ptr should be null...\n");
+	}
+	return test_result;
+}
+
+UnitTestResult TEST_IncorrectStringLength() {
+	UnitTestResult test_result;
+	test_result.passed = 1;
+
+	char* input = "abcde";
+	uint64_t data_size = 0;
+	uint8_t* data_decoded = Base64Decode(input, &data_size);
+	if(data_decoded) {
+		test_result.passed = 0;
+		snprintf(test_result.error_str, sizeof(test_result.error_str), "Returned ptr should be null...\n");
+	}
+	return test_result;
+}
+
+UnitTestResult TEST_NoTermAfterPadding() {
+	UnitTestResult test_result;
+	test_result.passed = 1;
+
+	char* input = "YQ==a";
+	uint64_t data_size = 0;
+	uint8_t* data_decoded = Base64Decode(input, &data_size);
+	if(data_decoded) {
+		test_result.passed = 0;
+		snprintf(test_result.error_str, sizeof(test_result.error_str), "Returned ptr should be null...\n");
+	}
+	return test_result;
+}
+
 int main() {
-	#define NUM_TESTS 8
+	#define NUM_TESTS 11
 	UnitTest all_tests[NUM_TESTS];
 
 	UnitTest test_0;
@@ -270,6 +312,21 @@ int main() {
 	test_7.test_name = "TEST_8193_bytes()";
 	test_7.test_func =  TEST_8193_bytes;
 	all_tests[7] = test_7;
+
+	UnitTest test_8;
+	test_8.test_name = "TEST_BadPadding()";
+	test_8.test_func =  TEST_BadPadding;
+	all_tests[8] = test_8;
+
+	UnitTest test_9;
+	test_9.test_name = "TEST_IncorrectStringLength()";
+	test_9.test_func =  TEST_IncorrectStringLength;
+	all_tests[9] = test_9;
+
+	UnitTest test_10;
+	test_10.test_name = "TEST_NoTermAfterPadding()";
+	test_10.test_func =  TEST_NoTermAfterPadding;
+	all_tests[10] = test_10;
 
 	for(int i = 0; i < NUM_TESTS; ++i) {
 		TEST_PRINT("Running test %s...", all_tests[i].test_name);
