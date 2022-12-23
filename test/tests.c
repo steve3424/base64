@@ -11,6 +11,7 @@
 #endif
 
 #include "..\\src\\base64.c"
+#include "..\\src\\win32_timing.h"
 
 // Run test, fill out this struct, and return
 typedef struct {
@@ -24,9 +25,12 @@ typedef struct {
 	UnitTestResult (*test_func)();
 } UnitTest;
 
-uint8_t* CreateRandomBytes(int num_bytes) {
+uint8_t* CreateRandomBytes(uint64_t num_bytes) {
 	uint8_t* data = malloc(num_bytes); 
-	for(int i = 0; i < num_bytes; ++i) {
+	if(!data) {
+        TEST_PRINT("Could not malloc %ju bytes for output buffer...\n", num_bytes);
+	}
+	for(uint64_t i = 0; i < num_bytes; ++i) {
 		uint8_t num = rand() % 255;
 		data[i] = num;
 	}
@@ -287,8 +291,38 @@ UnitTestResult TEST_BadAsciiCharacters() {
 	return test_result;
 }
 
+UnitTestResult TEST_Timing2GB() {
+	UnitTestResult test_result = {0};
+
+	uint64_t num_bytes     = 2ULL*1024*1024*1024;
+	Win32StartTimer();
+	uint8_t* data          = CreateRandomBytes(num_bytes);
+	Win32StopTimer();
+	TEST_PRINT("\nSeconds to create 2GB: %0.5f\n", Win32GetSecondsElapsed());
+
+	Win32StartTimer();
+	char*    base64_string = Base64Encode(data, num_bytes);
+	Win32StopTimer();
+	TEST_PRINT("Seconds to encode 2GB: %0.5f\n", Win32GetSecondsElapsed());
+
+	Win32StartTimer();
+	uint64_t data_size     = 0;
+	uint8_t* data_decoded  = Base64Decode(base64_string, &data_size);
+	Win32StopTimer();
+	TEST_PRINT("Seconds to decode 2GB: %0.5f\n", Win32GetSecondsElapsed());
+
+	if(!CompareBytes(data, data_decoded, num_bytes)) {
+		test_result.passed = 0;
+		snprintf(test_result.error_str, sizeof(test_result.error_str), "Mismatch on decode...\n");
+	}
+	else {
+		test_result.passed = 1;
+	}
+	return test_result;
+}
+
 int main() {
-	#define NUM_TESTS 12
+	#define NUM_TESTS 13
 	UnitTest all_tests[NUM_TESTS];
 
 	UnitTest test_0;
@@ -350,6 +384,11 @@ int main() {
 	test_11.test_name = "TEST_BadAsciiCharacters()";
 	test_11.test_func =  TEST_BadAsciiCharacters;
 	all_tests[11] = test_11;
+
+	UnitTest test_12;
+	test_12.test_name = "TEST_Timing2GB()";
+	test_12.test_func =  TEST_Timing2GB;
+	all_tests[12] = test_12;
 
 	for(int i = 0; i < NUM_TESTS; ++i) {
 		TEST_PRINT("Running test %s...", all_tests[i].test_name);

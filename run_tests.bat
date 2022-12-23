@@ -6,7 +6,7 @@ set BUILD_DIR=%BATCH_DIR%zbin_test
 mkdir %BUILD_DIR%
 pushd %BUILD_DIR%
 
-cl %BATCH_DIR%test\tests.c
+cl /Ox %BATCH_DIR%test\tests.c
 
 popd
 
