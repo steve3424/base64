@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+// TODO: more descriptive error messages
+
 unsigned char bin_to_ascii[65] = {
     'A','B','C','D','E','F','G','H','I','J','K','L','M',
     'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
@@ -9,14 +11,14 @@ unsigned char bin_to_ascii[65] = {
     '0','1','2','3','4','5','6','7','8','9','+','/','='
 };
 
-uint8_t ascii_to_bin[80] = {
+int8_t ascii_to_bin[80] = {
     /* + */   62,
-    0,0,0,
+    -1,-1,-1,
     /* / */   63,
     /* 0-9 */ 52,53,54,55,56,57,58,59,60,61,
-    0,0,0,0,0,0,0,
+    -1,-1,-1,0,-1,-1,-1,
     /* A-Z */ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,
-    0,0,0,0,0,0,
+    -1,-1,-1,-1,-1,-1,
     /* a-z */ 26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51
 };
 
@@ -117,6 +119,8 @@ char* Base64Encode(void* data, uint64_t num_bytes) {
 }
 
 void* Base64Decode(char* data, uint64_t* num_bytes_returned) {
+    *num_bytes_returned = 0;
+
     if(!data || *data == '\0') {
         printf("No data to decode...\n");
         return NULL;
@@ -136,16 +140,16 @@ void* Base64Decode(char* data, uint64_t* num_bytes_returned) {
         if(*(read_ptr + 1) == '\0' ||
            *(read_ptr + 2) == '\0' ||
            *(read_ptr + 3) == '\0') {
-            printf("Incorrect string length...\n");
             free(write_buffer);
+            printf("Incorrect string length...\n");
             return NULL;
         }
 
         // Incorrect padding
         if(*read_ptr == '=' ||
            *(read_ptr + 1) == '=') {
-            printf("Incorrect padding...\n");
             free(write_buffer);
+            printf("Incorrect padding...\n");
             return NULL;
         }
 
@@ -161,8 +165,8 @@ void* Base64Decode(char* data, uint64_t* num_bytes_returned) {
         // After padding should be null term
         if(num_bytes_to_write < 3 && 
            *(read_ptr + 4) != '\0') {
-            printf("String doesn't terminate after padding...\n");
             free(write_buffer);
+            printf("String doesn't terminate after padding...\n");
             return NULL;
         }
 
@@ -180,10 +184,37 @@ void* Base64Decode(char* data, uint64_t* num_bytes_returned) {
             }
         }
 
-        uint8_t byte_to_read_0 = ascii_to_bin[(uint8_t)(*(read_ptr++) - base_char)];
-        uint8_t byte_to_read_1 = ascii_to_bin[(uint8_t)(*(read_ptr++) - base_char)];
-        uint8_t byte_to_read_2 = ascii_to_bin[(uint8_t)(*(read_ptr++) - base_char)];
-        uint8_t byte_to_read_3 = ascii_to_bin[(uint8_t)(*(read_ptr++) - base_char)];
+        // Check for bad characters
+        char char_0 = *read_ptr++;
+        char char_1 = *read_ptr++;
+        char char_2 = *read_ptr++;
+        char char_3 = *read_ptr++;
+        uint8_t index_0 = char_0 - base_char;
+        uint8_t index_1 = char_1 - base_char;
+        uint8_t index_2 = char_2 - base_char;
+        uint8_t index_3 = char_3 - base_char;
+        if(79 < index_0 ||
+           79 < index_1 ||
+           79 < index_2 ||
+           79 < index_3) {
+            free(write_buffer);
+            printf("Bad ascii character found...\n");
+            return NULL;
+        }
+        int8_t byte_to_read_0 = ascii_to_bin[index_0];
+        int8_t byte_to_read_1 = ascii_to_bin[index_1];
+        int8_t byte_to_read_2 = ascii_to_bin[index_2];
+        int8_t byte_to_read_3 = ascii_to_bin[index_3];
+
+        if(byte_to_read_0 == -1 ||
+           byte_to_read_1 == -1 ||
+           byte_to_read_2 == -1 ||
+           byte_to_read_3 == -1) {
+            free(write_buffer);
+            printf("Bad ascii character found...\n");
+            return NULL;
+        }
+
         uint8_t byte_to_write_0 = (byte_to_read_0 << 2) | (byte_to_read_1 >> 4);
         uint8_t byte_to_write_1 = (byte_to_read_1 << 4) | (byte_to_read_2 >> 2);
         uint8_t byte_to_write_2 = (byte_to_read_2 << 6) | (byte_to_read_3);

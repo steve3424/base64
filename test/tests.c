@@ -34,6 +34,10 @@ uint8_t* CreateRandomBytes(int num_bytes) {
 }
 
 int CompareBytes(uint8_t* bytes_1, uint8_t* bytes_2, uint64_t size) {
+	if(!bytes_1 || !bytes_2 || size == 0) {
+		return 0;
+	}
+
 	for(uint64_t i = 0; i < size; ++i) {
 		if(bytes_1[i] != bytes_2[i]) {
 			return 0;
@@ -269,8 +273,22 @@ UnitTestResult TEST_NoTermAfterPadding() {
 	return test_result;
 }
 
+UnitTestResult TEST_BadAsciiCharacters() {
+	UnitTestResult test_result;
+	test_result.passed = 1;
+
+	char* input = "YQ>=";
+	uint64_t data_size = 0;
+	uint8_t* data_decoded = Base64Decode(input, &data_size);
+	if(data_decoded) {
+		test_result.passed = 0;
+		snprintf(test_result.error_str, sizeof(test_result.error_str), "Returned ptr should be null...\n");
+	}
+	return test_result;
+}
+
 int main() {
-	#define NUM_TESTS 11
+	#define NUM_TESTS 12
 	UnitTest all_tests[NUM_TESTS];
 
 	UnitTest test_0;
@@ -327,6 +345,11 @@ int main() {
 	test_10.test_name = "TEST_NoTermAfterPadding()";
 	test_10.test_func =  TEST_NoTermAfterPadding;
 	all_tests[10] = test_10;
+
+	UnitTest test_11;
+	test_11.test_name = "TEST_BadAsciiCharacters()";
+	test_11.test_func =  TEST_BadAsciiCharacters;
+	all_tests[11] = test_11;
 
 	for(int i = 0; i < NUM_TESTS; ++i) {
 		TEST_PRINT("Running test %s...", all_tests[i].test_name);
